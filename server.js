@@ -13,13 +13,14 @@ server.on('request', app);
 var io = socketio(server);
 
 io.on('connection', function (socket) {
-  console.log('SEE THE SOCKET');
-  socket.emit('news', { hello: 'world' });
-  socket.on('my other event', function (data) {
-    console.log(data);
-  });
+  // Called when the client calls socket.emit('move')
+  // socket.on('move', function(msg) {
+  //   socket.broadcast.emit('move', msg);
+  // });
+  // socket.on('message', function (message) {
+  //   console.log(`Got message from client: ${message}`);
+  // })
 });
-
 
 app.use(express.static(path.join(__dirname, 'public')))
 
