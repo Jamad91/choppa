@@ -1,5 +1,7 @@
 /* global game */
 
+var enemyCursors
+
 var RemotePlayer = function (index, game, player, startX, startY) {
   var x = startX
   var y = startY
@@ -9,29 +11,44 @@ var RemotePlayer = function (index, game, player, startX, startY) {
 
   this.player = game.add.sprite(x, y, 'enemy')
 
-  this.player.animations.add('right', [4,5], 10, true);
-  this.player.animations.add('left', [2,3], 10, true);
-  this.player.animations.add('stop', [3], 20, true)
 
-  this.player.anchor.setTo(0.5, 0.5)
-
-  this.player.name = index.toString()
+  this.player.scale.setTo(1.5, 1.5);
   game.physics.enable(this.player, Phaser.Physics.ARCADE)
-  this.player.body.immovable = true
+
+  this.player.body.gravity.y = 100;
   this.player.body.collideWorldBounds = true
 
-  this.lastPosition = { x: x, y: y }
+  this.player.animations.add('left', [2,3], 10, true);
+  this.player.animations.add('right', [5,4], 10, true);
+  this.player.animations.add('stop', [3], 20, true);
+
+  this.player.name = index.toString()
+
+  enemyCursors = game.input.keyboard.createCursorKeys();
+
+  // console.log(this.player.body);
 }
 
 RemotePlayer.prototype.update = function () {
-  if (this.player.x !== this.lastPosition.x || this.player.y !== this.lastPosition.y) {
-    this.player.play('move')
-  } else {
-    this.player.play('stop')
+  this.player.body.velocity.x = 0;
+
+  if (enemyCursors.left.isDown) {
+    this.player.body.velocity.x = -75;
+    this.player.animations.play('left');
+  }
+  else if (enemyCursors.right.isDown) {
+    this.player.body.velocity.x = 75;
+    this.player.animations.play('right')
+  }
+  else {
+    this.player.animations.stop(true);
+    this.player.frame = 4
   }
 
-  this.lastPosition.x = this.player.x
-  this.lastPosition.y = this.player.y
+  console.log('ENEMY touchdown', this.player.body.onFloor());
+  if (enemyCursors.up.isDown && this.player.body.onFloor()) {
+    this.player.body.velocity.y = -350;
+  }
 }
 
 window.RemotePlayer = RemotePlayer
