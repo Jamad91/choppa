@@ -93,7 +93,7 @@ function onSocketConnected () {
   var enemy = null
 
   // Send local player data to the game server
-  socket.emit('new player', { x: player.x, y: player.y })
+  socket.emit('new player', { x: soldier1.x, y: soldier1.y })
 }
 
 // Socket disconnected
@@ -106,19 +106,19 @@ function onNewPlayer (data) {
   console.log('New player connected:', data.id)
 
   // Avoid possible duplicate players
-  var duplicate = playerById(data.id)
+  var duplicate = enemy;
   if (duplicate) {
     console.log('Duplicate player!')
     return
   }
 
   // Add new player to the remote players array
-  enemy = new RemotePlayer(data.id, game, player, data.x, data.y)
+  enemy = new RemotePlayer(data.id, game, soldier1, data.x, data.y)
 }
 
 // Move player
 function onMovePlayer (data) {
-  var movePlayer = playerById(data.id)
+  var movePlayer = enemy
 
   // Player not found
   if (!movePlayer) {
@@ -127,8 +127,8 @@ function onMovePlayer (data) {
   }
 
   // Update player position
-  movePlayer.player.x = data.x
-  movePlayer.player.y = data.y
+  movePlayer.soldier1.x = data.x
+  movePlayer.soldier1.y = data.y
 }
 
 // Remove player
