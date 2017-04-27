@@ -1,4 +1,4 @@
-var socket = io();
+// var socket = io();
 
 // called when a player makes a move on the board UI
 // var handleMove = function (source, target) {
