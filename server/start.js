@@ -7,16 +7,11 @@ const {resolve} = require('path')
 const passport = require('passport')
 const PrettyError = require('pretty-error')
 const finalHandler = require('finalhandler')
-// PrettyError docs: https://www.npmjs.com/package/pretty-error
-
-// Bones has a symlink from node_modules/APP to the root of the app.
-// That means that we can require paths relative to the app root by
-// saying require('APP/whatever').
-//
-// This next line requires our root index.js:
+const app = express()
+const socketio = require('socket.io')
+// const http = require('http')
 const pkg = require('APP')
 
-const app = express()
 
 if (!pkg.isProduction && !pkg.isTesting) {
   // Logging middleware (dev only)
@@ -76,6 +71,7 @@ module.exports = app
     finalHandler(req, res)(err)
   })
 
+
 if (module === require.main) {
   // Start listening only if we're the main module.
   //
@@ -90,6 +86,14 @@ if (module === require.main) {
       console.log(`Listening on http://${urlSafeHost}:${port}`)
     }
   )
+
+  const io = socketio(server);
+
+  io.on('connection', socket => {
+    console.log('a user connected with an id of:', socket.id);
+  })
+
+
 }
 
 // This check on line 64 is only starting the server if this file is being run directly by Node, and not required by another file.
