@@ -9,8 +9,10 @@ const PrettyError = require('pretty-error')
 const finalHandler = require('finalhandler')
 const app = express()
 const socketio = require('socket.io')
-// const http = require('http')
 const pkg = require('APP')
+
+var socket;
+var players = [];
 
 
 if (!pkg.isProduction && !pkg.isTesting) {
@@ -91,6 +93,13 @@ if (module === require.main) {
 
   io.on('connection', socket => {
     console.log('a user connected with an id of:', socket.id);
+    players.push(socket.id)
+    console.log('total players', players.length);
+    socket.on('disconnect', () => {
+      console.log(`socket id ${socket.id} disconnected!`)
+      players.splice(players.indexOf(socket.id), 1)
+      console.log('total players', players.length);
+    })
   })
 
 
