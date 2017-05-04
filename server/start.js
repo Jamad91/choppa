@@ -8,50 +8,40 @@ const passport = require('passport')
 const PrettyError = require('pretty-error')
 const finalHandler = require('finalhandler')
 const app = express()
-const socketio = require('socket.io')
+const io = require('socket.io')
 const pkg = require('APP')
+const Player = require('./Player')
 
-var socket;
-var players = [];
+let socket;
+let players;
 
 
 if (!pkg.isProduction && !pkg.isTesting) {
-  // Logging middleware (dev only)
   app.use(require('volleyball'))
 }
 
-// Pretty error prints errors all pretty.
 const prettyError = new PrettyError();
 
-// Skip events.js and http.js and similar core node files.
 prettyError.skipNodeFiles()
 
-// Skip all the trace lines about express' core and sub-modules.
 prettyError.skipPackage('express')
 
 module.exports = app
-  // Session middleware - compared to express-session (which is what's used in the Auther workshop), cookie-session stores sessions in a cookie, rather than some other type of session store.
-  // Cookie-session docs: https://www.npmjs.com/package/cookie-session
   .use(require('cookie-session') ({
     name: 'session',
     keys: [process.env.SESSION_SECRET || 'an insecure secret key'],
   }))
 
-  // Body parsing middleware
   .use(bodyParser.urlencoded({ extended: true }))
   .use(bodyParser.json())
 
-  // Authentication middleware
   .use(passport.initialize())
   .use(passport.session())
 
-  // Serve static files from ../public
   .use(express.static(resolve(__dirname, '..', 'public')))
 
-  // Serve our api - ./api also requires in ../db, which syncs with our database
   .use('/api', require('./api'))
 
-  // any requests with an extension (.js, .css, etc.) turn into 404
   .use((req, res, next) => {
     if (path.extname(req.path).length) {
       const err = new Error('Not found')
@@ -62,12 +52,8 @@ module.exports = app
     }
   })
 
-  // Send index.html for anything else.
   .get('/*', (_, res) => res.sendFile(resolve(__dirname, '..', 'public', 'index.html')))
 
-  // Error middleware interceptor, delegates to same handler Express uses.
-  // https://github.com/expressjs/express/blob/master/lib/application.js#L162
-  // https://github.com/pillarjs/finalhandler/blob/master/index.js#L172
   .use((err, req, res, next) => {
     console.error(prettyError.render(err))
     finalHandler(req, res)(err)
@@ -75,9 +61,6 @@ module.exports = app
 
 
 if (module === require.main) {
-  // Start listening only if we're the main module.
-  //
-  // https://nodejs.org/api/modules.html#modules_accessing_the_main_module
   const server = app.listen(
     process.env.PORT || 1337,
     () => {
@@ -86,25 +69,43 @@ if (module === require.main) {
       const host = address === '::' ? 'localhost' : address
       const urlSafeHost = host.includes(':') ? `[${host}]` : host
       console.log(`Listening on http://${urlSafeHost}:${port}`)
+      init()
     }
   )
 
-  const io = socketio(server);
+  function init() {
+    players = [];
+    socket = io(server);
+    setEventHandlers();
+  }
 
-  io.on('connection', socket => {
-    console.log('a user connected with an id of:', socket.id);
-    players.push(socket.id)
-    console.log('total players', players.length);
-    socket.on('disconnect', () => {
-      console.log(`socket id ${socket.id} disconnected!`)
-      players.splice(players.indexOf(socket.id), 1)
-      console.log('total players', players.length);
-    })
-  })
+  function setEventHandlers() {
+    socket.sockets.on('connection', onSocketConnection)
+  }
 
+  function onSocketConnection(client) {
+    console.log('New Player has connected:', client.id)
+    client.on('disconnect', onClientDisconnect)
+    client.on('new player', onNewPlayer)
+  }
+
+  function onClientDisconnect () {
+    console.log('Player has disconnected: ' + this.id)
+    players.splice(players.indexOf(this.id), 1)
+    this.broadcast.emit('remove player', {id: this.id})
+    console.log("Current number of players: ", players.length);
+  }
+
+  function onNewPlayer (data) {
+    console.log('data', data);
+    var newPlayer = new Player(data.x, data.y)
+    newPlayer.id = this.id
+    console.log('New Player', newPlayer);
+    console.log('This ID', this.id);
+    console.log('New Player X', newPlayer.getY());
+    this.broadcast.emit('new player', {id: newPlayer.id, x: newPlayer.getX(), y: newPlayer.getY()})
+    players.push(newPlayer)
+    console.log("Current number of players: ", players.length);
+  }
 
 }
-
-// This check on line 64 is only starting the server if this file is being run directly by Node, and not required by another file.
-// Bones does this for testing reasons. If we're running our app in development or production, we've run it directly from Node using 'npm start'.
-// If we're testing, then we don't actually want to start the server; 'module === require.main' will luckily be false in that case, because we would be requiring in this file in our tests rather than running it directly.
