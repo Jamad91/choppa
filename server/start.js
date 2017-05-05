@@ -88,7 +88,6 @@ if (module === require.main) {
     client.on('disconnect', onClientDisconnect)
     client.on('new player', onNewPlayer)
     client.on('move player', onMovePlayer)
-    console.log('hitting');
   }
 
   function onClientDisconnect () {
@@ -114,8 +113,6 @@ if (module === require.main) {
 
   function onMovePlayer(data) {
     var movePlayer = playerById(this.id)
-    console.log('THIS', Object.keys(this));
-    console.log('X location',movePlayer);
 
     movePlayer.setX(data.x)
     movePlayer.setY(data.y)

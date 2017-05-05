@@ -61,7 +61,7 @@ var setEventHandlers = function () {
   socket.on('move player', onMovePlayer)
   //
   // // Player removed message received
-  // socket.on('remove player', onRemovePlayer)
+  socket.on('remove player', onRemovePlayer)
 }
 
 function onSocketConnected () {
@@ -102,9 +102,17 @@ function onMovePlayer(data) {
   // Update player position
   movePlayer.player.x = data.x
   movePlayer.player.y = data.y
-
 }
 
+function onRemovePlayer(data) {
+  var removePlayer = playerById(data.id)
+  console.log('data', data);
+  console.log('socket.id',socket.id);
+  console.log('removePlayer',removePlayer);
+  removePlayer.player.kill()
+
+  enemies.splice(enemies.indexOf(removePlayer), 1)
+}
 
 function update() {
   var hitPlatform = game.physics.arcade.collide(player, platforms);
