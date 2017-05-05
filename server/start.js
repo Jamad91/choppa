@@ -1,74 +1,135 @@
 'use strict'
 
+const path = require('path')
 const express = require('express')
 const bodyParser = require('body-parser')
 const {resolve} = require('path')
 const passport = require('passport')
 const PrettyError = require('pretty-error')
-
-
-// Bones has a symlink from node_modules/APP to the root of the app.
-// That means that we can require paths relative to the app root by
-// saying require('APP/whatever').
-//
-// This next line requires our root index.js:
-const pkg = require('APP')
-
+const finalHandler = require('finalhandler')
 const app = express()
+const io = require('socket.io')
+const pkg = require('APP')
+const Player = require('./Player')
+
+let socket;
+let players;
+
 
 if (!pkg.isProduction && !pkg.isTesting) {
-  // Logging middleware (dev only)
   app.use(require('volleyball'))
 }
 
-// Pretty error prints errors all pretty.
 const prettyError = new PrettyError();
 
-// Skip events.js and http.js and similar core node files.
 prettyError.skipNodeFiles()
 
-// Skip all the trace lines about express' core and sub-modules.
 prettyError.skipPackage('express')
 
 module.exports = app
-  // We'll store the whole session in a cookie
   .use(require('cookie-session') ({
     name: 'session',
     keys: [process.env.SESSION_SECRET || 'an insecure secret key'],
   }))
 
-  // Body parsing middleware
   .use(bodyParser.urlencoded({ extended: true }))
   .use(bodyParser.json())
 
-  // Authentication middleware
   .use(passport.initialize())
   .use(passport.session())
-  
-  // Serve static files from ../public
+
   .use(express.static(resolve(__dirname, '..', 'public')))
 
-  // Serve our api
   .use('/api', require('./api'))
 
-  // Send index.html for anything else.
+  .use((req, res, next) => {
+    if (path.extname(req.path).length) {
+      const err = new Error('Not found')
+      err.status = 404
+      next(err)
+    } else {
+      next()
+    }
+  })
+
   .get('/*', (_, res) => res.sendFile(resolve(__dirname, '..', 'public', 'index.html')))
 
   .use((err, req, res, next) => {
-    console.log(prettyError.render(err))
-    res.status(500).send(err)
-    next()
+    console.error(prettyError.render(err))
+    finalHandler(req, res)(err)
   })
 
+
 if (module === require.main) {
-  // Start listening only if we're the main module.
-  // 
-  // https://nodejs.org/api/modules.html#modules_accessing_the_main_module
   const server = app.listen(
     process.env.PORT || 1337,
     () => {
-      console.log(`--- Started HTTP Server for ${pkg.name} ---`)      
-      console.log(`Listening on ${JSON.stringify(server.address())}`)
+      console.log(`--- Started HTTP Server for ${pkg.name} ---`)
+      const { address, port } = server.address()
+      const host = address === '::' ? 'localhost' : address
+      const urlSafeHost = host.includes(':') ? `[${host}]` : host
+      console.log(`Listening on http://${urlSafeHost}:${port}`)
+      init()
     }
   )
+
+  function init() {
+    players = [];
+    socket = io(server);
+    setEventHandlers();
+  }
+
+  function setEventHandlers() {
+    socket.sockets.on('connection', onSocketConnection)
+  }
+
+  function onSocketConnection(client) {
+    console.log('New Player has connected:', client.id)
+    client.on('disconnect', onClientDisconnect)
+    client.on('new player', onNewPlayer)
+    client.on('move player', onMovePlayer)
+  }
+
+  function onClientDisconnect () {
+    console.log('Player has disconnected: ' + this.id)
+    players.splice(players.indexOf(this.id), 1)
+    this.broadcast.emit('remove player', {id: this.id})
+    console.log("Current number of players: ", players.length);
+  }
+
+  function onNewPlayer (data) {
+    var newPlayer = new Player(data.x, data.y)
+    newPlayer.id = this.id
+    this.broadcast.emit('new player', {id: newPlayer.id, x: newPlayer.getX(), y: newPlayer.getY()})
+
+    var i, existingPlayer
+    for (i = 0; i < players.length; i++) {
+      existingPlayer = players[i]
+      this.emit('new player', {id: existingPlayer.id, x: existingPlayer.getX(), y: existingPlayer.getY()})
+    }
+
+    players.push(newPlayer)
+  }
+
+  function onMovePlayer(data) {
+    var movePlayer = playerById(this.id)
+
+    movePlayer.setX(data.x)
+    movePlayer.setY(data.y)
+
+    this.broadcast.emit('move player', {id: movePlayer.id, x: movePlayer.getX(), y: movePlayer.getY()})
+
+  }
+
+}
+
+function playerById (id) {
+  var i
+  for (i = 0; i < players.length; i++) {
+    if (players[i].id === id) {
+      return players[i]
+    }
+  }
+
+  return false
 }
