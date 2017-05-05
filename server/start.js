@@ -87,6 +87,8 @@ if (module === require.main) {
     console.log('New Player has connected:', client.id)
     client.on('disconnect', onClientDisconnect)
     client.on('new player', onNewPlayer)
+    client.on('move player', onMovePlayer)
+    console.log('hitting');
   }
 
   function onClientDisconnect () {
@@ -97,15 +99,40 @@ if (module === require.main) {
   }
 
   function onNewPlayer (data) {
-    console.log('data', data);
     var newPlayer = new Player(data.x, data.y)
     newPlayer.id = this.id
-    console.log('New Player', newPlayer);
-    console.log('This ID', this.id);
-    console.log('New Player X', newPlayer.getY());
     this.broadcast.emit('new player', {id: newPlayer.id, x: newPlayer.getX(), y: newPlayer.getY()})
+
+    var i, existingPlayer
+    for (i = 0; i < players.length; i++) {
+      existingPlayer = players[i]
+      this.emit('new player', {id: existingPlayer.id, x: existingPlayer.getX(), y: existingPlayer.getY()})
+    }
+
     players.push(newPlayer)
-    console.log("Current number of players: ", players.length);
   }
 
+  function onMovePlayer(data) {
+    var movePlayer = playerById(this.id)
+    console.log('THIS', Object.keys(this));
+    console.log('X location',movePlayer);
+
+    movePlayer.setX(data.x)
+    movePlayer.setY(data.y)
+
+    this.broadcast.emit('move player', {id: movePlayer.id, x: movePlayer.getX(), y: movePlayer.getY()})
+
+  }
+
+}
+
+function playerById (id) {
+  var i
+  for (i = 0; i < players.length; i++) {
+    if (players[i].id === id) {
+      return players[i]
+    }
+  }
+
+  return false
 }

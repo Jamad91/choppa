@@ -58,7 +58,7 @@ var setEventHandlers = function () {
   socket.on('new player', onNewPlayer)
   //
   // // Player move message received
-  // socket.on('move player', onMovePlayer)
+  socket.on('move player', onMovePlayer)
   //
   // // Player removed message received
   // socket.on('remove player', onRemovePlayer)
@@ -79,7 +79,6 @@ function onSocketDisconnect () {
 }
 
 function onNewPlayer (data) {
-  console.log('data data', data);
   // var duplicate = playerById(data.id)
   // if (duplicate) {
   //   console.log('Duplicate player!')
@@ -91,6 +90,19 @@ function onNewPlayer (data) {
 function onMovePlayer(data) {
   // console.log('moving game data', data)
   // socket.emit('move player')
+
+  var movePlayer = playerById(data.id)
+
+  // Player not found
+  if (!movePlayer) {
+    console.log('Player not found: ', data.id)
+    return
+  }
+
+  // Update player position
+  movePlayer.player.x = data.x
+  movePlayer.player.y = data.y
+
 }
 
 
@@ -98,37 +110,53 @@ function update() {
   var hitPlatform = game.physics.arcade.collide(player, platforms);
   cursors = game.input.keyboard.createCursorKeys();
 
+  for (var i = 0; i < enemies.length; i++) {
+    if (enemies[i].alive) {
+      enemies[i].update()
+      game.physics.arcade.collide(player, enemies[i].player)
+    }
+  }
 
   player.body.velocity.x = 0;
 
-    if (cursors.left.isDown)
-    {
-        //  Move to the left
-        player.body.velocity.x = -150;
+  if (cursors.left.isDown)
+  {
+      //  Move to the left
+      player.body.velocity.x = -150;
 
-        player.animations.play('left');
-        // onMovePlayer(player)
-    }
-    else if (cursors.right.isDown)
-    {
-        //  Move to the right
-        player.body.velocity.x = 150;
+      player.animations.play('left');
+      // socket.emit('move player', {x: player.x, y: player.y})
+  }
+  else if (cursors.right.isDown)
+  {
+      //  Move to the right
+      player.body.velocity.x = 150;
 
-        player.animations.play('right');
-        // onMovePlayer(player)
-        // socket.emit('move player')
-    }
-    else
-    {
-        //  Stand still
-        player.animations.stop();
+      player.animations.play('right');
+      // socket.emit('move player', {x: player.x, y: player.y})
+  }
+  else
+  {
+      //  Stand still
+      player.animations.stop();
 
-        player.frame = 4;
-    }
+      player.frame = 4;
+  }
 
-    //  Allow the player to jump if they are touching the ground.
-    if (cursors.up.isDown && player.body.touching.down && hitPlatform)
-    {
-        player.body.velocity.y = -350;
+  //  Allow the player to jump if they are touching the ground.
+  if (cursors.up.isDown && player.body.touching.down && hitPlatform)
+  {
+      player.body.velocity.y = -350;
+  }
+  socket.emit('move player', {x: player.x, y: player.y})
+}
+
+function playerById (id) {
+  for (var i = 0; i < enemies.length; i++) {
+    if (enemies[i].player.name === id) {
+      return enemies[i]
     }
+  }
+
+  return false
 }
